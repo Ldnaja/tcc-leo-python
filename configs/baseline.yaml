@@ -1,0 +1,26 @@
+simulation:
+  seed: 42
+  duration_s: 600
+  dt_s: 1.0
+
+satellite:
+  n_beams: 19
+  total_channels: 48
+  total_power_w: 120.0
+
+traffic:
+  base_arrival_rate: 0.04
+  hotspot_amplitude: 0.50
+  hotspot_period_s: 180
+  mean_service_demand_mb: 6
+  min_sinr_db: 5.0
+
+channel:
+  base_snr_db: 18.0
+  edge_loss_db: 6.0
+  interference_penalty_db: 4.5
+  channel_bandwidth_hz: 1000000
+
+allocation:
+  strategy: proportional_fair
+  max_channels_per_beam: 6

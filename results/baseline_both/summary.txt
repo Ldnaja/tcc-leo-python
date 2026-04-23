@@ -1,0 +1,16 @@
+--- RESUMO ---
+Config utilizada: configs/baseline_both.yaml
+Amostras: 600
+Carga oferecida média (Mbps): 766.28
+Carga aceita média (Mbps): 615.39
+Capacidade alocada média (Mbps): 151.41
+Goodput real médio (Mbps): 151.10
+Capacidade alocada final (Mbps): 148.54
+Goodput real final (Mbps): 148.54
+Fila final: 73
+Bloqueio acumulado total: 0.7657
+Bloqueio acumulado por fila máxima: 0.1845
+Bloqueio acumulado por timeout: 0.5812
+Utilização final: 1.0000
+Fairness final: 0.9661
+Resultados em: /home/luca-naja/tcc-leo-python/results/baseline_both

@@ -1,0 +1,27 @@
+name: tcc_ntn_leo
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.11
+  - pip
+  - numpy
+  - scipy
+  - pandas
+  - matplotlib
+  - networkx
+  - pyyaml
+  - jupyter
+  - ipykernel
+  - pip:
+      - simpy
+      - tqdm
+      - rich
+      - sgp4
+      - astropy
+      - pyproj
+      - numba
+      - gymnasium
+      - stable-baselines3
+      - tensorboard
+      - torch

@@ -1,0 +1,16 @@
+{
+  "config": "configs/baseline_both.yaml",
+  "samples": 600,
+  "avg_offered_load_mbps": 766.2760178948384,
+  "avg_accepted_load_mbps": 615.3863967365651,
+  "avg_capacity_mbps": 151.4053341517044,
+  "avg_goodput_mbps": 151.1030126773271,
+  "final_capacity_mbps": 148.54254398125224,
+  "final_goodput_mbps": 148.54254398125224,
+  "final_queue": 73,
+  "final_blocked_rate": 0.7656903765690377,
+  "final_blocked_queue_cap_rate": 0.18451882845188283,
+  "final_blocked_timeout_rate": 0.5811715481171548,
+  "final_utilization": 1.0,
+  "final_fairness": 0.9660531117737444
+}
