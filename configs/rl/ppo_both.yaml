@@ -8,7 +8,7 @@ rl:
 
 train:
   seed: 42
-  total_timesteps: 50000
+  total_timesteps: 30000
   learning_rate: 0.0003
   n_steps: 2048
   batch_size: 256

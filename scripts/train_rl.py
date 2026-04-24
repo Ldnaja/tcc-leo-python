@@ -18,7 +18,7 @@ from src.rl.envs.leo_env import LeoEnv
 
 
 def main() -> None:
-    config_path = Path("configs/rl/ppo_both.yaml")
+    config_path = Path("configs/rl/ppo_both_v2.yaml")
 
     with open(config_path, "r", encoding="utf-8") as f:
         cfg = yaml.safe_load(f)
@@ -57,7 +57,8 @@ def main() -> None:
         name_prefix="ppo_both",
     )
 
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+    #device = "cuda" if torch.cuda.is_available() else "cpu" #Usar somente se quiser GPU, mas testes indicaram um resultado apenas mais lento em relação ao CPU
+    device = "cpu"
 
     model = PPO(
         policy="MlpPolicy",
