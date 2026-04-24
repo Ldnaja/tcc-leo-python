@@ -12,6 +12,7 @@ from src.channel.link_model import apply_interference_penalty, beam_quality_db, 
 from src.core.entities import BeamState, UserRequest
 from src.core.topology import adjacency_from_distance, hex_layout
 from src.metrics.collector import MetricsCollector
+from src.rl.actions import allocate_by_priority
 from src.traffic.generator import TrafficGenerator
 
 
@@ -77,9 +78,11 @@ class BaselineScenario:
             rng=self.rng,
         )
 
-    def _apply_timeout_drops(self, t: float) -> None:
+    def _apply_timeout_drops(self, t: float) -> list[float]:
         if not self.enable_timeout:
-            return
+            return []
+
+        timeout_delays_step = []
 
         for beam in self.beams.values():
             remaining_backlog = []
@@ -90,9 +93,12 @@ class BaselineScenario:
                     self.collector.blocked_requests += 1
                     self.collector.blocked_by_timeout += 1
                     self.collector.timeout_delays_s.append(waited_s)
+                    timeout_delays_step.append(waited_s)
                 else:
                     remaining_backlog.append(req)
             beam.backlog = remaining_backlog
+
+        return timeout_delays_step
 
     def _admit_arrivals(self, arrivals: Dict[int, list[UserRequest]]) -> tuple[float, float]:
         offered_mb = 0.0
@@ -118,21 +124,37 @@ class BaselineScenario:
 
         return offered_mb, accepted_mb
 
-    def step(self, t: float, dt_s: float) -> None:
+    def step(self, t: float, dt_s: float, external_action: np.ndarray | None = None) -> dict:
         arrivals = self.traffic.generate(t, dt_s)
         hotspot_xy = self.traffic.hotspot_position(t)
 
-        self._apply_timeout_drops(t)
+        blocked_before = self.collector.blocked_requests
+        served_before = self.collector.served_requests
+        accepted_before = self.collector.accepted_requests
+
+        timeout_delays_step = self._apply_timeout_drops(t)
         offered_mb, accepted_mb = self._admit_arrivals(arrivals)
 
-        allocate_resources(
-            strategy=self.strategy,
-            beams=self.beams,
-            total_channels=self.cfg["satellite"]["total_channels"],
-            total_power_w=self.cfg["satellite"]["total_power_w"],
-            max_channels_per_beam=self.cfg["allocation"]["max_channels_per_beam"],
-            step_idx=self.step_idx,
-        )
+        arrivals_count = sum(len(reqs) for reqs in arrivals.values())
+        served_delays_step: list[float] = []
+
+        if external_action is None:
+            allocate_resources(
+                strategy=self.strategy,
+                beams=self.beams,
+                total_channels=self.cfg["satellite"]["total_channels"],
+                total_power_w=self.cfg["satellite"]["total_power_w"],
+                max_channels_per_beam=self.cfg["allocation"]["max_channels_per_beam"],
+                step_idx=self.step_idx,
+            )
+        else:
+            allocate_by_priority(
+                beams=self.beams,
+                priorities=external_action,
+                total_channels=self.cfg["satellite"]["total_channels"],
+                total_power_w=self.cfg["satellite"]["total_power_w"],
+                max_channels_per_beam=self.cfg["allocation"]["max_channels_per_beam"],
+            )
 
         channel_bw = self.cfg["channel"]["channel_bandwidth_hz"]
         min_sinr_db = self.cfg["traffic"]["min_sinr_db"]
@@ -140,7 +162,6 @@ class BaselineScenario:
 
         throughputs = []
         used_channels = 0
-
         served_step_mb = 0.0
 
         for beam_id, beam in self.beams.items():
@@ -189,9 +210,12 @@ class BaselineScenario:
                 if req.remaining_mb <= 1e-9:
                     req.served = True
                     self.collector.served_requests += 1
-                    self.collector.served_delays_s.append(t + dt_s - req.created_at)
+                    delay_s = t + dt_s - req.created_at
+                    self.collector.served_delays_s.append(delay_s)
+                    served_delays_step.append(delay_s)
                     beam.backlog.pop(0)
 
+        queue_sum = sum(beam.queue_len for beam in self.beams.values())
         utilization = used_channels / total_channels if total_channels > 0 else 0.0
         fairness = self.collector.jain_fairness([x for x in throughputs if x > 0])
 
@@ -217,7 +241,7 @@ class BaselineScenario:
         self.history["capacity_sum_mbps"].append(capacity_sum_mbps)
         self.history["goodput_sum_mbps"].append(goodput_sum_mbps)
         self.history["served_step_mb"].append(served_step_mb)
-        self.history["queue_sum"].append(sum(beam.queue_len for beam in self.beams.values()))
+        self.history["queue_sum"].append(queue_sum)
         self.history["blocked_rate"].append(blocked_rate)
         self.history["blocked_queue_cap_rate"].append(blocked_queue_cap_rate)
         self.history["blocked_timeout_rate"].append(blocked_timeout_rate)
@@ -229,7 +253,39 @@ class BaselineScenario:
         self.history["p95_served_delay_s"].append(p95_served_delay_s)
         self.history["mean_timeout_delay_s"].append(mean_timeout_delay_s)
 
+        blocked_step = self.collector.blocked_requests - blocked_before
+        served_step_requests = self.collector.served_requests - served_before
+        accepted_step_requests = self.collector.accepted_requests - accepted_before
+
+        step_mean_served_delay_s = sum(served_delays_step) / len(served_delays_step) if served_delays_step else 0.0
+        step_mean_timeout_delay_s = sum(timeout_delays_step) / len(timeout_delays_step) if timeout_delays_step else 0.0
+        blocked_step_ratio = blocked_step / max(1, arrivals_count)
+
+        step_info = {
+            "time": t,
+            "arrivals_count": arrivals_count,
+            "accepted_step_requests": accepted_step_requests,
+            "served_step_requests": served_step_requests,
+            "blocked_step_requests": blocked_step,
+            "blocked_step_ratio": blocked_step_ratio,
+            "offered_load_mbps": offered_load_mbps,
+            "accepted_load_mbps": accepted_load_mbps,
+            "capacity_sum_mbps": capacity_sum_mbps,
+            "goodput_sum_mbps": goodput_sum_mbps,
+            "queue_sum": queue_sum,
+            "utilization": utilization,
+            "fairness": fairness,
+            "step_mean_served_delay_s": step_mean_served_delay_s,
+            "step_mean_timeout_delay_s": step_mean_timeout_delay_s,
+            "blocked_rate": blocked_rate,
+            "blocked_queue_cap_rate": blocked_queue_cap_rate,
+            "blocked_timeout_rate": blocked_timeout_rate,
+            "acceptance_rate": acceptance_rate,
+            "service_rate": service_rate,
+        }
+
         self.step_idx += 1
+        return step_info
 
     def run(self) -> dict:
         duration_s = self.cfg["simulation"]["duration_s"]
