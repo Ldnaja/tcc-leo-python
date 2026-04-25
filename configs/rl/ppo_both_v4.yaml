@@ -1,0 +1,35 @@
+env:
+  scenario_config: configs/baseline_both.yaml
+
+rl:
+  queue_norm: 100.0
+  goodput_norm: 250.0
+  throughput_norm: 50.0
+
+expert:
+  total_channels: 48
+  total_power_w: 120.0
+  max_channels_per_beam: 6
+  dataset_path: results/rl/datasets/greedy_backlog_both_v4.npz
+
+bc:
+  epochs: 20
+  batch_size: 1024
+  learning_rate: 0.0005
+
+train:
+  seed: 42
+  total_timesteps: 250000
+  learning_rate: 0.0002
+  n_steps: 2048
+  batch_size: 256
+  gamma: 0.99
+  gae_lambda: 0.95
+  ent_coef: 0.003
+  vf_coef: 0.5
+
+paths:
+  tensorboard_log: results/rl/tensorboard/ppo_both_v4
+  checkpoint_dir: results/rl/checkpoints/ppo_both_v4
+  bc_model_path: results/rl/checkpoints/ppo_both_v4/bc_init_model
+  model_path: results/rl/checkpoints/ppo_both_v4/final_model
