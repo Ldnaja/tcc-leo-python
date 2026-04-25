@@ -1,0 +1,16 @@
+rl_model_config: configs/rl/ppo_both_v4.yaml
+
+scenarios:
+  - configs/sensitivity/both_ch32.yaml
+  - configs/sensitivity/both_ch64.yaml
+  - configs/sensitivity/both_int3.yaml
+  - configs/sensitivity/both_int6.yaml
+  - configs/sensitivity/both_q5_t10.yaml
+  - configs/sensitivity/both_q5_t40.yaml
+  - configs/sensitivity/both_q10_t20.yaml
+  - configs/sensitivity/both_q15_t20.yaml
+
+seeds: [42, 43, 44, 45, 46, 47, 48, 49, 50, 51]
+
+paths:
+  out_dir: results/rl/evaluations/robustness/ppo_both_v4
