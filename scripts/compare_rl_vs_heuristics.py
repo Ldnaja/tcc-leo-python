@@ -7,8 +7,8 @@ import pandas as pd
 
 def main() -> None:
     heuristics_path = Path("results/experiments_main/comparison_table.csv")
-    rl_path = Path("results/rl/evaluations/ppo_both_v2/rl_eval_summary.csv")  # Alterar se caso for testar outras versões
-    out_dir = Path("results/rl/comparisons/ppo_both_v2")  # Alterar se caso for testar outras versões
+    rl_path = Path("results/rl/evaluations/ppo_both_v3/rl_eval_summary.csv")  # Alterar se caso for testar outras versões
+    out_dir = Path("results/rl/comparisons/ppo_both_v3")  # Alterar se caso for testar outras versões
     out_dir.mkdir(parents=True, exist_ok=True)
 
     heur_df = pd.read_csv(heuristics_path)

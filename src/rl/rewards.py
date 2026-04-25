@@ -8,7 +8,7 @@ def compute_reward(step_info: dict, queue_norm: float = 100.0, goodput_norm: flo
     delay_term = min(step_info["step_mean_served_delay_s"] / 40.0, 1.0)
     fairness_term = step_info["fairness"]
 
-    # reward = (
+    # reward_v1 = (
     #     1.00 * goodput_term
     #     - 0.80 * blocked_term
     #     - 0.25 * queue_term
@@ -16,12 +16,20 @@ def compute_reward(step_info: dict, queue_norm: float = 100.0, goodput_norm: flo
     #     + 0.05 * fairness_term
     # )
 
+    # reward_v2 = (
+    #     1.20 * goodput_term
+    #     - 0.90 * blocked_term
+    #     - 0.20 * queue_term
+    #     - 0.10 * delay_term
+    #     + 0.03 * fairness_term
+    # )
+
     reward = (
-        1.20 * goodput_term
-        - 0.90 * blocked_term
-        - 0.20 * queue_term
-        - 0.10 * delay_term
-        + 0.03 * fairness_term
+        1.30 * goodput_term
+        - 0.95 * blocked_term
+        - 0.18 * queue_term
+        - 0.08 * delay_term
+        + 0.12 * fairness_term
     )
 
     terms = {

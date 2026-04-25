@@ -64,7 +64,7 @@ def flatten_columns(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def main() -> None:
-    rl_config_path = Path("configs/rl/ppo_both_v2.yaml") #Alterar se caso for testar outras versões
+    rl_config_path = Path("configs/rl/ppo_both_v3.yaml") #Alterar se caso for testar outras versões
     with open(rl_config_path, "r", encoding="utf-8") as f:
         cfg = yaml.safe_load(f)
 
@@ -74,7 +74,7 @@ def main() -> None:
     throughput_norm = float(cfg["rl"]["throughput_norm"])
     model_path = cfg["paths"]["model_path"]
 
-    out_dir = Path("results/rl/evaluations/ppo_both_v2") #Alterar se caso for testar outras versões
+    out_dir = Path("results/rl/evaluations/ppo_both_v3") #Alterar se caso for testar outras versões
     out_dir.mkdir(parents=True, exist_ok=True)
 
     model = PPO.load(model_path, device="cpu")

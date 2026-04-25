@@ -1,0 +1,23 @@
+env:
+  scenario_config: configs/baseline_both.yaml
+
+rl:
+  queue_norm: 100.0
+  goodput_norm: 250.0
+  throughput_norm: 50.0
+
+train:
+  seed: 42
+  total_timesteps: 350000
+  learning_rate: 0.0002
+  n_steps: 2048
+  batch_size: 256
+  gamma: 0.99
+  gae_lambda: 0.95
+  ent_coef: 0.003
+  vf_coef: 0.5
+
+paths:
+  tensorboard_log: results/rl/tensorboard/ppo_both_v3
+  checkpoint_dir: results/rl/checkpoints/ppo_both_v3
+  model_path: results/rl/checkpoints/ppo_both_v3/final_model
