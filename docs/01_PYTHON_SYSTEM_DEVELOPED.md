@@ -182,6 +182,12 @@ A reward foi construída a partir de cinco componentes:
 - `delay_term`
 - `fairness_term`
 
+A formulação da função de recompensa foi definida de modo a refletir a prioridade operacional do problema estudado: maximizar a vazão útil da rede sem ignorar congestionamento, bloqueio e qualidade de atendimento. Assim, o termo de goodput recebeu o maior peso positivo, por representar diretamente a quantidade de tráfego efetivamente servida pelo sistema. Em contrapartida, o termo de bloqueio recebeu a maior penalização negativa, uma vez que uma política que aumente o goodput às custas de uma elevada taxa de rejeição não é desejável no contexto de alocação dinâmica de canais.
+
+Os termos associados à fila e ao atraso foram incluídos como mecanismos de estabilização do comportamento do agente. A penalização da fila busca desencorajar o crescimento persistente do backlog, que pode indicar instabilidade e tendência futura de degradação do atendimento. Já o atraso recebeu peso menor, pois, no simulador adotado, seus efeitos são parcialmente refletidos pelo crescimento das filas e pela ocorrência de timeouts. Por fim, o termo de fairness foi incorporado como regularização, com o objetivo de evitar políticas excessivamente concentradas em poucos beams, sem permitir que a equidade se sobreponha ao objetivo principal de atendimento.
+
+Os pesos adotados na reward não derivam de uma formulação analítica fechada ou de um teorema específico da literatura. Eles foram definidos por um processo iterativo de calibração experimental, no qual diferentes ponderações foram testadas ao longo das versões do agente. A seleção final foi orientada pelo comportamento observado nas métricas externas de desempenho, como goodput, bloqueio, aceitação, serviço e atraso, e não apenas pelo valor interno da recompensa acumulada.
+
 Houve três formulações de reward ao longo do desenvolvimento:
 
 - **reward v1**: usada na `ppo_v1`;
@@ -189,6 +195,8 @@ Houve três formulações de reward ao longo do desenvolvimento:
 - **reward final**: usada tanto na `ppo_v3` quanto na `ppo_v4`.
 
 Esse ponto é importante para a interpretação dos resultados: a recompensa média por episódio não é estritamente comparável entre `v1`, `v2`, `v3` e `v4` como se todas compartilhassem a mesma escala. A comparação direta de reward é metodologicamente mais válida entre `ppo_v3` e `ppo_v4`, que usam a mesma formulação. Entre todas as versões, a comparação correta deve ser feita principalmente pelas métricas operacionais do ambiente, como goodput, bloqueio, aceitação, serviço e atraso.
+
+Além disso, como `ppo_v3` e `ppo_v4` utilizam a mesma formulação final de recompensa, eventuais diferenças de desempenho entre essas duas versões não devem ser atribuídas à alteração da reward, mas sim ao processo de treinamento, refinamento experimental e demais ajustes realizados no agente.
 
 ### 9.3 Configuração das versões PPO
 
