@@ -45,3 +45,8 @@ Este pacote reúne a documentação consolidada da frente Python do TCC, já ali
 ## Observação
 
 Os resultados mostrados nestes MDS refletem a leitura dos CSVs consolidados enviados na última revisão.
+
+
+## Observação metodológica
+
+Entre as versões PPO, a formulação da reward mudou nas etapas iniciais. Portanto, a comparação transversal entre versões deve privilegiar métricas operacionais do ambiente, enquanto a reward deve ser interpretada com comparação direta sobretudo entre `ppo_v3` e `ppo_v4`, que compartilham a formulação final.

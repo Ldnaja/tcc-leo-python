@@ -6,7 +6,7 @@ A frente Python foi desenvolvida como o ambiente principal de investigação do 
 
 A escolha por uma frente própria em Python teve três objetivos principais. O primeiro foi permitir controle direto sobre as abstrações do problema, tornando viável ajustar carga, número de canais, nível de interferência, política de alocação e mecanismos de congestionamento. O segundo foi criar uma infraestrutura suficientemente flexível para testar rapidamente múltiplos cenários e gerar bases comparativas repetíveis com várias seeds. O terceiro foi fornecer um ambiente compatível com integração direta com bibliotecas de aprendizado por reforço, sem depender inicialmente de um simulador de rede mais pesado.
 
-Assim, a frente Python não foi tratada como um substituto de ferramentas de rede em nível de pacote, mas como o núcleo analítico do TCC para estudar a lógica de decisão e o impacto da redistribuição de canais em um ambiente LEO multifeixe simplificado.
+Assim, a frente Python não foi tratada como substituto de ferramentas de rede em nível de pacote, mas como o núcleo analítico do TCC para estudar a lógica de decisão e o impacto da redistribuição de canais em um ambiente LEO multifeixe simplificado.
 
 ## 2. Objetivo técnico do sistema
 
@@ -80,8 +80,6 @@ As principais abstrações adotadas foram:
 
 Essas abstrações foram escolhidas para manter o problema diretamente alinhado ao objetivo do TCC: estudar a redistribuição dinâmica de canais sob pressão de carga.
 
-
-
 ### 5.1 Fundamentação metodológica das abstrações
 
 A construção do simulador não partiu da reprodução literal de um único artigo ou de um stack industrial fechado. A estratégia adotada foi combinar elementos recorrentes da literatura de redes NTN/LEO e de alocação dinâmica de recursos com simplificações controladas adequadas ao objetivo do TCC.
@@ -94,8 +92,7 @@ Em termos metodológicos, a modelagem se apoia em cinco ideias amplamente aceita
 - degradação do atendimento sob saturação, observada por filas, bloqueio e atraso;
 - comparação entre políticas fixas e políticas adaptativas orientadas por estado.
 
-Assim, a frente Python deve ser entendida como um simulador experimental **inspirado por princípios reais de redes multifeixe**, mas propositalmente simplificado para análise de decisão. Em outras palavras, ele não pretende ser um gêmeo digital orbital completo, e sim um ambiente de estudo cientificamente defensável para o problema específico de redistribuição dinâmica de canais.
-
+Assim, a frente Python deve ser entendida como um simulador experimental inspirado por princípios reais de redes multifeixe, mas propositalmente simplificado para análise de decisão. Em outras palavras, ele não pretende ser um gêmeo digital orbital completo, e sim um ambiente de estudo cientificamente defensável para o problema específico de redistribuição dinâmica de canais.
 
 ## 6. Parâmetros principais utilizados
 
@@ -158,39 +155,113 @@ Após a consolidação das heurísticas, a mesma base do simulador foi conectada
 
 Nessa integração:
 
-- o **estado** do ambiente passa a representar, de forma normalizada, o estado das filas, canais alocados, SINR, throughput por beam e indicadores globais;
+- o **estado** do ambiente representa, de forma normalizada, o estado das filas, canais alocados, SINR, throughput por beam e indicadores globais;
 - a **ação** do agente é um vetor contínuo de prioridades por beam;
 - essa ação é convertida em distribuição discreta de canais pela função de alocação baseada em prioridade;
 - a **recompensa** combina goodput, bloqueio, fila, atraso e fairness.
 
 A integração foi feita sobre o mesmo simulador-base, o que preserva a comparabilidade metodológica com as heurísticas.
 
+### 9.1 Construção da frente PPO
+
+A frente de RL não foi implementada como bloco isolado, mas como extensão direta do simulador heurístico. O cenário-base passou a aceitar tanto políticas fixas quanto ações externas produzidas pelo agente. Com isso, a mesma lógica de tráfego, filas, atendimento e coleta de métricas foi mantida em todas as etapas, mudando apenas a política de alocação.
+
+Essa escolha foi importante porque evita uma comparação artificial entre ambientes diferentes. Em termos práticos, heurísticas e PPO foram avaliados sobre a mesma dinâmica de sistema.
+
+### 9.2 Estado, ação e função de recompensa
+
+O ambiente `LeoEnv` foi estruturado para produzir uma observação vetorial composta por informações locais e globais da rede. Entre os atributos observados estão: tamanho de fila por beam, canais alocados, SINR, throughput por beam, fila total, goodput global recente, razão de bloqueio no passo e utilização dos canais.
+
+A ação do PPO é um vetor contínuo de prioridades, uma por beam. Esse vetor não corresponde diretamente ao número de canais, mas a pesos relativos. A função `allocate_by_priority` converte essas prioridades em uma alocação discreta sob as restrições do sistema (`total_channels` e `max_channels_per_beam`).
+
+A reward foi construída a partir de cinco componentes:
+
+- `goodput_term`
+- `blocked_term`
+- `queue_term`
+- `delay_term`
+- `fairness_term`
+
+Houve três formulações de reward ao longo do desenvolvimento:
+
+- **reward v1**: usada na `ppo_v1`;
+- **reward v2**: usada na `ppo_v2`;
+- **reward final**: usada tanto na `ppo_v3` quanto na `ppo_v4`.
+
+Esse ponto é importante para a interpretação dos resultados: a recompensa média por episódio não é estritamente comparável entre `v1`, `v2`, `v3` e `v4` como se todas compartilhassem a mesma escala. A comparação direta de reward é metodologicamente mais válida entre `ppo_v3` e `ppo_v4`, que usam a mesma formulação. Entre todas as versões, a comparação correta deve ser feita principalmente pelas métricas operacionais do ambiente, como goodput, bloqueio, aceitação, serviço e atraso.
+
+### 9.3 Configuração das versões PPO
+
+A evolução do PPO foi implementada em quatro versões configuradas por arquivos YAML.
+
+| Versão | Arquivo | Alteração principal | Observação de construção |
+|---|---|---|---|
+| `ppo_v1` | `ppo_both.yaml` | primeira configuração estável | `30000` timesteps, hiperparâmetros padrão, reward v1 |
+| `ppo_v2` | `ppo_both_v2.yaml` | aumento forte do treino | `300000` timesteps, reward v2 |
+| `ppo_v3` | `ppo_both_v3.yaml` | refinamento de otimização | `350000` timesteps, `learning_rate=0.0002`, `ent_coef=0.003`, reward final |
+| `ppo_v4` | `ppo_both_v4.yaml` | inicialização guiada por especialista e ajuste final | reward final, fine-tuning PPO com `250000` timesteps e etapa prévia de behavior cloning |
+
+No caso da `ppo_v4`, a construção incluiu dois blocos adicionais:
+
+- `expert`: definição do dataset especialista derivado de `greedy_backlog`;
+- `bc`: configuração da etapa de behavior cloning (`epochs=20`, `batch_size=1024`, `learning_rate=0.0005`).
+
+Portanto, a `ppo_v4` não difere apenas por mais treinamento. Ela difere por incorporar conhecimento inicial derivado da melhor heurística agressiva antes do ajuste final com PPO.
+
+### 9.4 Configuração final adotada na `ppo_v4`
+
+A configuração final da versão selecionada para comparação e robustez foi:
+
+- cenário de treino: `baseline_both`;
+- `queue_norm = 100.0`;
+- `goodput_norm = 250.0`;
+- `throughput_norm = 50.0`;
+- `seed = 42`;
+- `total_timesteps = 250000`;
+- `learning_rate = 0.0002`;
+- `n_steps = 2048`;
+- `batch_size = 256`;
+- `gamma = 0.99`;
+- `gae_lambda = 0.95`;
+- `ent_coef = 0.003`;
+- `vf_coef = 0.5`.
+
+### 9.5 Configuração de robustez
+
+A avaliação de robustez da versão final foi descrita em `robustness_v4.yaml`. Nesse arquivo, a `ppo_v4` treinada no cenário principal é reavaliada, sem novo treinamento, nos oito cenários de sensibilidade:
+
+- `both_ch32`;
+- `both_ch64`;
+- `both_int3`;
+- `both_int6`;
+- `both_q5_t10`;
+- `both_q5_t40`;
+- `both_q10_t20`;
+- `both_q15_t20`.
+
+Isso significa que a robustez mede generalização do agente final, e não um novo processo de ajuste por cenário.
+
 ## 10. Saídas produzidas pelo sistema
 
-A frente Python gera saídas em formatos adequados tanto para análise exploratória quanto para redação do TCC:
+A frente Python gera saídas em formatos adequados tanto para inspeção técnica quanto para escrita acadêmica. Entre elas estão:
 
-- `history.csv` por execução;
-- `summary.json` por execução;
-- tabelas consolidadas `comparison_table.csv`;
-- arquivos `all_runs.csv` com todas as seeds;
-- figuras por métrica;
+- históricos temporais por execução;
+- resumos por seed;
+- tabelas agregadas com média e desvio padrão;
+- gráficos por métrica;
 - resumos de avaliação do PPO;
 - comparações entre PPO e heurísticas;
-- comparações de robustez.
+- tabelas de robustez.
 
-Essa estrutura foi fundamental para permitir uma trilha metodológica reproduzível.
+Esse desenho de saída foi decisivo para transformar a frente Python não apenas em um simulador, mas em uma base experimental reprodutível para o TCC.
 
-## 11. Papel da frente Python no trabalho
+## 11. Papel desta frente dentro do trabalho
 
-No contexto do TCC, a frente Python deve ser apresentada como o sistema principal desenvolvido para estudar a alocação dinâmica de canais em redes LEO multifeixe sob carga variável.
+Dentro da estrutura do TCC, a frente Python cumpre quatro papéis principais:
 
-É nessa frente que foram consolidados:
+1. ambiente principal de estudo do problema de decisão;
+2. base comparativa entre heurísticas clássicas;
+3. infraestrutura de integração com RL;
+4. gerador dos resultados centrais da primeira frente experimental.
 
-- o problema experimental;
-- os cenários principais;
-- a comparação entre heurísticas;
-- a análise de sensibilidade;
-- a integração com PPO;
-- a avaliação de robustez do agente treinado.
-
-A frente NS-3, a ser inserida posteriormente, pode ser tratada como ambiente complementar de verificação em nível de rede. Assim, as duas frentes convergem para a mesma ideia: uma serve para estudar e comparar a lógica de decisão com maior controle experimental, e a outra serve para observar a manifestação dessa decisão em um ambiente de rede mais próximo de transmissão efetiva.
+Por isso, a frente Python não representa apenas uma etapa preliminar. Ela constitui efetivamente o primeiro sistema desenvolvido do trabalho, com objetivos próprios, critérios de avaliação definidos e resultados consolidados.

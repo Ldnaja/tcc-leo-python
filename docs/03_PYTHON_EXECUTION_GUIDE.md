@@ -1,8 +1,14 @@
 # Guia de Execução — Frente Python do TCC LEO
 
+Este documento explica, passo a passo, como instalar, configurar e executar a frente Python do TCC. O objetivo é deixar a execução reproduzível, desde os cenários base com heurísticas até os experimentos com PPO e os testes de robustez.
+
 ## 1. Objetivo deste guia
 
-Este documento explica, passo a passo, como instalar, configurar e executar a frente Python do TCC. O objetivo é deixar a execução reproduzível, desde os cenários base com heurísticas até os experimentos com PPO e os testes de robustez.
+A frente Python foi usada como ambiente principal de estudo da alocação dinâmica de canais em rede LEO multifeixe simplificada. Nela foram executadas três linhas principais de experimentação:
+
+- comparação entre heurísticas de alocação;
+- análise de sensibilidade dos parâmetros mais relevantes;
+- treinamento, avaliação e robustez de um agente PPO.
 
 ## 2. Organização geral do projeto
 
@@ -35,19 +41,27 @@ tcc-leo-python/
 ### 3.1 `src/`
 Contém o código-fonte do simulador.
 
-- `allocation/`: heurísticas de alocação;
-- `channel/`: modelo simplificado de enlace;
-- `core/`: entidades e topologia;
-- `metrics/`: coleta de métricas;
-- `traffic/`: geração de tráfego;
-- `scenarios/`: cenário base e loop de simulação;
-- `rl/`: ambiente Gymnasium, reward e alocação por prioridade para PPO.
+- `src/scenarios/`: cenários, com destaque para `baseline.py`;
+- `src/traffic/`: geração de tráfego;
+- `src/channel/`: modelo de canal;
+- `src/allocation/`: heurísticas;
+- `src/metrics/`: coleta de métricas;
+- `src/core/`: entidades e topologia.
 
-### 3.2 `configs/`
-Contém os YAMLs com os parâmetros dos experimentos.
+### 3.2 RL
 
-### 3.3 `scripts/`
-Contém os pontos de entrada para executar campanhas, treinar RL, avaliar modelos e comparar resultados.
+- `src/rl/envs/`: ambiente Gymnasium;
+- `src/rl/actions/`: conversão de ação contínua em prioridades por beam;
+- `src/rl/rewards/`: função de recompensa.
+
+### 3.3 Scripts
+
+- `scripts/run_baseline.py`: execução unitária;
+- `scripts/run_experiments.py`: múltiplas seeds, cenários e heurísticas;
+- `scripts/train_rl.py`: treinamento PPO;
+- `scripts/evaluate_rl.py`: avaliação PPO;
+- `scripts/compare_rl_vs_heuristics.py`: comparação PPO versus heurísticas;
+- scripts de robustez e consolidação, quando presentes no projeto.
 
 ### 3.4 `results/`
 Recebe os arquivos gerados:
@@ -63,59 +77,48 @@ O ambiente usado como referência foi:
 
 - Ubuntu 24.04 LTS;
 - Python 3.12;
-- ambiente virtual (`venv`);
 - execução principal em CPU para PPO com política MLP.
 
-## 5. Criação do ambiente virtual
-
-No diretório do projeto:
+Foi utilizada uma `venv` no Ubuntu. O fluxo típico é:
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
-```
-
-Atualize ferramentas básicas:
-
-```bash
 python -m pip install --upgrade pip setuptools wheel
 ```
 
-## 6. Instalação das dependências
+## 5. Bibliotecas principais
 
-### 6.1 Dependências gerais do simulador
+As bibliotecas principais são:
 
-```bash
-pip install pyyaml pandas matplotlib numpy rich tqdm
-```
+- `pyyaml`
+- `numpy`
+- `pandas`
+- `matplotlib`
+- `rich`
+- `tqdm`
+- `gymnasium`
+- `stable-baselines3`
+- `torch`
 
-### 6.2 Dependências de RL
-
-```bash
-pip install gymnasium
-pip install "stable-baselines3[extra]"
-```
-
-### 6.3 PyTorch
-
-Caso deseje usar GPU CUDA, instale a versão compatível com sua máquina. No ambiente de referência foi usada uma build CUDA 12.6.
-
-Exemplo:
+Instalação básica:
 
 ```bash
-pip3 install torch torchvision --index-url https://download.pytorch.org/whl/cu126
+pip install pyyaml pandas matplotlib numpy rich tqdm gymnasium "stable-baselines3[extra]"
 ```
 
-Verificação:
+Caso haja uso de GPU, a instalação do `torch` pode variar conforme CUDA. Para PPO com política MLP, o treinamento em CPU costuma ser suficiente e frequentemente mais estável em custo-benefício.
+
+## 6. Verificação rápida do ambiente
 
 ```bash
 python - <<'PY'
 import gymnasium
 import torch
 import stable_baselines3
-print("gymnasium ok")
-print("torch ok:", torch.__version__, "cuda:", torch.cuda.is_available())
-print("sb3 ok:", stable_baselines3.__version__)
+print('gymnasium ok')
+print('torch ok:', torch.__version__, 'cuda:', torch.cuda.is_available())
+print('sb3 ok:', stable_baselines3.__version__)
 PY
 ```
 
@@ -145,10 +148,11 @@ Em `configs/sensitivity/`, com destaque para:
 
 Em `configs/rl/`, por exemplo:
 
-- `ppo_both_v1.yaml`
+- `ppo_both.yaml`
 - `ppo_both_v2.yaml`
 - `ppo_both_v3.yaml`
 - `ppo_both_v4.yaml`
+- `robustness_v4.yaml`
 
 ## 8. Significado dos principais parâmetros YAML
 
@@ -192,11 +196,15 @@ Em `configs/rl/`, por exemplo:
 - `total_timesteps`: total de timesteps de treinamento;
 - `learning_rate`, `n_steps`, `batch_size`, `gamma`, `gae_lambda`, `ent_coef`, `vf_coef`: hiperparâmetros do PPO.
 
+### Bloco `expert` (quando existir)
+- parâmetros do especialista usado para gerar dataset inicial.
 
+### Bloco `bc` (quando existir)
+- parâmetros da etapa de behavior cloning.
 
-## 8.1 Natureza das abstrações do simulador
+## 9. Natureza das abstrações do simulador
 
-Antes da execução, é importante registrar que a frente Python não reproduz uma rede comercial completa nem uma constelação orbital detalhada. O ambiente foi construído como simulador experimental para estudar decisão de alocação. Portanto:
+A frente Python não reproduz uma rede comercial completa nem uma constelação orbital detalhada. O ambiente foi construído como simulador experimental para estudar decisão de alocação. Portanto:
 
 - o foco principal é o problema de redistribuição de canais;
 - a topologia orbital completa foi abstraída para uma malha multifeixe fixa;
@@ -206,17 +214,16 @@ Antes da execução, é importante registrar que a frente Python não reproduz u
 
 Essa observação é importante porque a validade do sistema está em sua coerência com o problema estudado, e não em reproduzir todos os detalhes de uma rede industrial.
 
+## 10. Heurísticas implementadas
 
-## 9. Heurísticas implementadas
-
-As heurísticas disponíveis na frente Python são:
+As heurísticas disponíveis são:
 
 - `proportional_fair`
 - `round_robin`
 - `longest_queue_first`
 - `greedy_backlog`
 
-## 10. Métricas geradas
+## 11. Métricas geradas
 
 As métricas principais geradas pelo sistema são:
 
@@ -237,77 +244,151 @@ As métricas principais geradas pelo sistema são:
 - `final_fairness`
 - `final_utilization`
 
-## 11. Execução unitária de um cenário
+## 12. Execução unitária de um cenário
+
+Exemplo com `baseline_both`:
 
 ```bash
 python scripts/run_baseline.py --config configs/baseline_both.yaml
 ```
 
-## 12. Execução dos experimentos principais
+Saídas típicas:
+
+- `history.csv`
+- `summary.json`
+- gráficos das métricas
+
+## 13. Execução dos experimentos principais
 
 ```bash
 python scripts/run_experiments.py   --configs     configs/baseline.yaml     configs/baseline_queue_cap.yaml     configs/baseline_timeout.yaml     configs/baseline_both.yaml   --outdir results/experiments_main   --save-histories
 ```
 
-## 13. Execução da sensibilidade
+Saídas esperadas:
+
+- `results/experiments_main/all_runs.csv`
+- `results/experiments_main/comparison_table.csv`
+- diretórios `runs/` por cenário, estratégia e seed
+
+## 14. Execução da sensibilidade
 
 ```bash
 python scripts/run_experiments.py   --configs     configs/sensitivity/both_ch32.yaml     configs/sensitivity/both_ch64.yaml     configs/sensitivity/both_int3.yaml     configs/sensitivity/both_int6.yaml     configs/sensitivity/both_q5_t10.yaml     configs/sensitivity/both_q5_t40.yaml     configs/sensitivity/both_q10_t20.yaml     configs/sensitivity/both_q15_t20.yaml   --outdir results/experiments_sensitivity   --save-histories
 ```
 
-## 14. Verificação do ambiente RL
+## 15. O que muda entre as versões PPO
 
-```bash
-python scripts/smoke_test_rl.py
-```
+### `ppo_both.yaml` (`ppo_v1`)
+- versão inicial estável;
+- `total_timesteps = 30000`;
+- reward v1.
 
-## 15. Treinamento do PPO
+### `ppo_both_v2.yaml`
+- expansão do treinamento;
+- `total_timesteps = 300000`;
+- reward v2.
+
+### `ppo_both_v3.yaml`
+- refinamento do treinamento;
+- `total_timesteps = 350000`;
+- `learning_rate = 0.0002`;
+- `ent_coef = 0.003`;
+- reward final.
+
+### `ppo_both_v4.yaml`
+- mesma reward da `ppo_v3`;
+- ajuste final de PPO com `total_timesteps = 250000`;
+- adição de bloco `expert`;
+- adição de bloco `bc` para behavior cloning;
+- inicialização do agente a partir de conhecimento especialista.
+
+### `robustness_v4.yaml`
+- não define novo treinamento;
+- carrega a `ppo_v4` treinada;
+- executa avaliação cruzada nos cenários de sensibilidade.
+
+## 16. Treinamento do PPO
+
+Exemplo da versão desejada, ajustando o arquivo usado dentro de `scripts/train_rl.py`:
 
 ```bash
 python scripts/train_rl.py
 ```
 
-## 16. Avaliação do PPO treinado
+Antes de rodar, confirme qual YAML está sendo apontado no script, por exemplo:
+
+- `configs/rl/ppo_both.yaml`
+- `configs/rl/ppo_both_v2.yaml`
+- `configs/rl/ppo_both_v3.yaml`
+- `configs/rl/ppo_both_v4.yaml`
+
+Saídas típicas:
+
+- `results/rl/checkpoints/...`
+- `results/rl/tensorboard/...`
+
+## 17. Avaliação do PPO treinado
 
 ```bash
 python scripts/evaluate_rl.py
 ```
 
-## 17. Comparação do PPO com heurísticas
+Novamente, confirme qual YAML o script está lendo. Saídas típicas:
+
+- `results/rl/evaluations/<versao>/rl_eval_runs.csv`
+- `results/rl/evaluations/<versao>/rl_eval_summary.csv`
+- subpastas por seed com `history.csv`, `summary.json` e gráficos
+
+## 18. Comparação do PPO com heurísticas
 
 ```bash
 python scripts/compare_rl_vs_heuristics.py
 ```
 
-## 18. Robustez da PPO v4
+Saída típica:
 
-A lógica geral é:
+- `results/rl/comparisons/<versao>/baseline_both_rl_vs_heuristics.csv`
+
+## 19. Robustez da PPO v4
+
+O fluxo esperado é:
 
 1. carregar o modelo PPO v4;
-2. executar o agente nos cenários de sensibilidade;
-3. salvar CSV consolidado de robustez;
+2. avaliar esse mesmo modelo nos cenários de robustez;
+3. consolidar os CSVs de robustez;
 4. comparar PPO e heurísticas nesses mesmos cenários.
 
-## 19. Geração das figuras e tabelas consolidadas
-
-```bash
-python generate_tcc_summary_figures.py --base-dir . --out-dir results/tcc_compilation
-```
+Se o projeto já tiver scripts dedicados, execute-os conforme a convenção do repositório. Caso contrário, a robustez pode ser obtida adaptando a lógica de `evaluate_rl.py` para iterar sobre os cenários listados em `robustness_v4.yaml`.
 
 ## 20. Ordem recomendada de reprodução
 
-1. criar e ativar a `venv`;
-2. instalar dependências;
-3. rodar um cenário unitário com `run_baseline.py`;
-4. rodar os experimentos principais;
-5. rodar os experimentos de sensibilidade;
-6. validar o ambiente RL com `smoke_test_rl.py`;
+1. ativar a `venv`;
+2. validar as bibliotecas;
+3. executar um cenário unitário para smoke test;
+4. rodar experimentos principais;
+5. rodar sensibilidade;
+6. consolidar tabelas das heurísticas;
 7. treinar a versão desejada do PPO;
 8. avaliar o PPO;
 9. comparar PPO com heurísticas;
-10. executar robustez do PPO v4;
-11. gerar figuras e tabelas consolidadas.
+10. executar robustez da PPO v4;
+11. consolidar figuras e tabelas finais.
 
-## 21. Observação metodológica final
+## 21. Arquivos principais a usar na escrita
 
-A leitura correta da frente Python não é apenas “qual método teve mais goodput”. O sistema foi construído para observar compromisso entre throughput, bloqueio, atraso, fairness e acúmulo de fila. Por isso, os experimentos devem sempre ser interpretados em conjunto com as tabelas consolidadas.
+Para a parte textual e analítica, os arquivos mais importantes são:
+
+- `results/experiments_main/comparison_table.csv`
+- `results/experiments_sensitivity/comparison_table.csv`
+- `results/rl/evaluations/<versao>/rl_eval_summary.csv`
+- `results/rl/comparisons/<versao>/baseline_both_rl_vs_heuristics.csv`
+- `results/rl/evaluations/robustness/ppo_both_v4/rl_robustness_summary.csv`
+
+## 22. Observação metodológica importante sobre reward
+
+A reward do PPO mudou entre as primeiras versões. Portanto:
+
+- compare **todas as versões** principalmente pelas métricas operacionais do ambiente;
+- use a reward como comparação direta apenas quando a formulação for a mesma, em especial entre `ppo_v3` e `ppo_v4`.
+
+Esse cuidado evita interpretações incorretas sobre ganho artificial causado apenas por mudança de escala da função de recompensa.
